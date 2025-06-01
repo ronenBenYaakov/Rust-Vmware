@@ -1,0 +1,2 @@
+cargo bootimage
+cargo run

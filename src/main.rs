@@ -6,7 +6,8 @@
 
 extern crate alloc;
 
-use blog_os::println;
+use blog_os::pci::pci_scan;
+use blog_os::{pci, println};
 use blog_os::task::{Task, executor::Executor, keyboard};
 use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
@@ -33,6 +34,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     let mut executor = Executor::new();
     executor.spawn(Task::new(example_task()));
     executor.spawn(Task::new(keyboard::print_keypresses()));
+
+    pci_scan();
+    
     executor.run();
 }
 
