@@ -1,6 +1,6 @@
 use x86_64::instructions::port::{PortRead, PortWrite, Port};
 
-use crate::{device::print_pci_device_details, println};
+use crate::{device::{print_pci_device_details, reset_device}, println};
 
 const PCI_CONFIG_ADDRESS: u16 = 0xcf8;
 const PCI_CONFIG_DATA: u16 = 0xcfc;
@@ -73,32 +73,12 @@ pub fn read_bar0(bus: u8, device: u8, function: u8) -> u32 {
 }
 
 pub fn initialize_device(bus: u8, device: u8, function: u8) {
-    enable_device(bus, device, function);
-    let bar0 = read_bar0(bus, device, function);
-    println!("Device BAR0 address: {:x}", bar0);
+    let vendor_id = pci_read(bus, device, function, 0x00) & 0xFFFF;
+    let device_id = (pci_read(bus, device, function, 0x00) >> 16) & 0xFFFF;
 
-    // Further device initialization code here
-}
-
-pub fn write_bar0(bus: u8, device: u8, function: u8, offset: u32, value: u32) {
-    // Read BAR0 register to get base address
-    let bar0 = pci_read(bus, device, function, 0x10);
-
-    if (bar0 & 0x1) == 0 {
-        // MMIO - Memory Mapped IO
-        let mmio_base = bar0 & 0xFFFFFFF0;
-        let reg_addr = (mmio_base + offset) as *mut u32;
-
-        unsafe {
-            core::ptr::write_volatile(reg_addr, value);
-        }
-    } else {
-        // Port IO
-        let port_base = bar0 & 0xFFFFFFFC;
-
-        unsafe {
-            let mut port = Port::<u32>::new(port_base + offset);
-            port.write(value);
-        }
+    if vendor_id != 0x8086 || device_id != 0x100E {
+        return; // Not the Intel e1000 device
     }
+
+    println!("Initialized e1000 NIC at bus {:02x}, device {:02x}", bus, device);
 }

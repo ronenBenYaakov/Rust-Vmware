@@ -7,6 +7,7 @@
 extern crate alloc;
 
 use blog_os::pci::pci_scan;
+use blog_os::rings::{read_register, set_mmio_base, write_register};
 use blog_os::{pci, println};
 use blog_os::task::{Task, executor::Executor, keyboard};
 use bootloader::{BootInfo, entry_point};
@@ -35,8 +36,16 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     executor.spawn(Task::new(example_task()));
     executor.spawn(Task::new(keyboard::print_keypresses()));
 
+    let physical_memory_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    let mut mapper = unsafe { memory::init(physical_memory_offset) };
+
+    // 2. Initialize frame allocator
+    let mut frame_allocator = unsafe { memory::BootInfoFrameAllocator::init(&boot_info.memory_map) };
+
+    // 3. Scan PCI devices and initialize them (pass mapper and allocator)
     pci_scan();
-    
+    set_mmio_base(0x08); 
+
     executor.run();
 }
 

@@ -2,10 +2,9 @@ use alloc::alloc::{GlobalAlloc, Layout};
 use core::ptr::null_mut;
 use fixed_size_block::FixedSizeBlockAllocator;
 use x86_64::{
-    VirtAddr,
     structures::paging::{
-        FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB, mapper::MapToError,
-    },
+        mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, PhysFrame, Size4KiB
+    }, VirtAddr
 };
 
 pub mod bump;

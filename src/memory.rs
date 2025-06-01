@@ -1,7 +1,6 @@
 use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
 use x86_64::{
-    PhysAddr, VirtAddr,
-    structures::paging::{FrameAllocator, OffsetPageTable, PageTable, PhysFrame, Size4KiB},
+    structures::paging::{FrameAllocator, Mapper, OffsetPageTable, PageTable, PhysFrame, Size4KiB}, PhysAddr, VirtAddr
 };
 
 /// Initialize a new OffsetPageTable.
@@ -16,6 +15,7 @@ pub unsafe fn init(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static>
         OffsetPageTable::new(level_4_table, physical_memory_offset)
     }
 }
+
 
 /// Returns a mutable reference to the active level 4 table.
 ///
@@ -83,4 +83,36 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
         self.next += 1;
         frame
     }
+}
+
+use x86_64::{
+    structures::paging::{Page, PageTableFlags as Flags},
+};
+
+/// Map a physical MMIO address to virtual memory space
+pub unsafe fn map_mmio(
+    phys_addr: PhysAddr,
+    size: u64,
+    offset_page_table: &mut OffsetPageTable,
+    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
+) -> VirtAddr {
+    let start_frame: PhysFrame<Size4KiB> = PhysFrame::containing_address(phys_addr);
+    let end_frame = PhysFrame::containing_address(phys_addr + size - 1u64);
+
+    let mut virt_addr = VirtAddr::new(0xFFFF_FF80_0000_0000); // pick a fixed offset (high memory)
+
+    for frame in PhysFrame::range_inclusive(start_frame, end_frame) {
+        let page = Page::containing_address(virt_addr);
+        let flags = Flags::PRESENT | Flags::WRITABLE;
+
+        offset_page_table
+            .map_to(page, frame, flags, frame_allocator)
+            .expect("map_to failed")
+            .flush();
+
+        virt_addr += 4096u64;
+    }
+
+    // Return the base virtual address
+    VirtAddr::new(0xFFFF_FF80_0000_0000)
 }
